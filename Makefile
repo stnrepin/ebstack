@@ -31,7 +31,7 @@ CLEAN_LIST := $(TARGET_RELEASE) \
 default: makedir all
 
 $(OBJ_REL_PATH)/%.o: $(SRC_PATH)/%.cpp*
-	$(CXX) $(CXXOBJFLAGS) -o $@ $<
+	$(CXX) $(CXXOBJFLAGS) -O3 -o $@ $<
 
 $(OBJ_DBG_PATH)/%.o: $(SRC_PATH)/%.cpp*
 	$(CXX) $(CXXOBJFLAGS) $(DBGFLAGS) -o $@ $<

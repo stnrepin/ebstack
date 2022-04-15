@@ -18,7 +18,7 @@ public:
     size_t GetSize() const;
 
 private:
-    eb::Stack< int > s_{ 64, 1, 15000 };
+    eb::Stack< int > s_{ 200, 32, 500 };
 };
 
 template< typename T >

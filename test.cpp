@@ -9,6 +9,12 @@
 
 #include "stack_wrapper.hpp"
 
+
+constexpr auto kElemsCount = 100000;
+constexpr int kPopCount = kElemsCount * 0.5;
+
+constexpr int kIterCount = 5;
+
 //#define STD_STACK_MUTEX
 
 #ifdef STD_STACK_MUTEX
@@ -17,7 +23,6 @@ using Stack = std::stack< int >;
 using Stack = eb::Stack< int >;
 #endif // STD_STACK_MUTEX
 
-static StackWrapper< Stack > g_shared;
 static std::atomic< int > g_thread_count;
 
 std::vector< std::vector< int > > BuildTestStacks( int thread_count, int elems_count )
@@ -69,7 +74,7 @@ private:
     timespec end_;
 };
 
-void process( std::vector< int >* vals, int pop_count )
+void process( std::vector< int >* vals, StackWrapper< Stack >* shared, int pop_count )
 {
     eb::InitThread();
 
@@ -81,12 +86,12 @@ void process( std::vector< int >* vals, int pop_count )
 
     for( const auto v : *vals )
     {
-        g_shared.Push( v );
+        shared->Push( v );
     }
 
     for( auto i = 0; i < pop_count; ++i )
     {
-        g_shared.Pop();
+        shared->Pop();
     }
 }
 
@@ -98,35 +103,38 @@ int main( int argc, char* argv[] )
         return 1;
     }
 
-    constexpr auto kElemsCount = 100'000;
-    constexpr int kPopCount = kElemsCount * 0.3;
-
     auto thread_count = std::stoi( argv[ 1 ] );
     auto src = BuildTestStacks( thread_count, kElemsCount );
 
-    eb::InitSystem();
-
-    g_thread_count = thread_count;
-    std::vector< std::thread > ths;
-
-    auto sw = Stopwatch::Start();
-    for( auto i = 0; i < thread_count; ++i )
+    uint64_t total_time;
+    for( auto i = 0; i < kIterCount; ++i )
     {
-        auto th = std::thread( process, &src[ i ], kPopCount );
-        ths.push_back( std::move( th ) );
-    }
+        eb::InitSystem();
+        StackWrapper< Stack > shared;
 
-    for( auto& t : ths )
-    {
-        if( t.joinable() )
+        g_thread_count = thread_count;
+        std::vector< std::thread > ths;
+
+        auto sw = Stopwatch::Start();
+        for( auto i = 0; i < thread_count; ++i )
         {
-            t.join();
+            auto th = std::thread( process, &src[ i ], &shared, kPopCount );
+            ths.push_back( std::move( th ) );
         }
+
+        for( auto& t : ths )
+        {
+            if( t.joinable() )
+            {
+                t.join();
+            }
+        }
+        sw.Stop();
+
+        size_t total_size = thread_count * ( kElemsCount - kPopCount ); 
+        auto ss = shared.GetSize();
+        assert( ss == total_size );
+        total_time += sw.GetNs();
     }
-    sw.Stop();
-
-    size_t total_size = thread_count * ( kElemsCount - kPopCount ); 
-    assert( g_shared.GetSize() == total_size );
-
-    std::cout << "Took: " << sw.GetNs() << "\n";
+        std::cout << "Took: " << total_time / kIterCount << "\n";
 }
