@@ -1,0 +1,97 @@
+\documentclass[a4paper,14pt]{extarticle}
+\usepackage{rotating}
+\usepackage{verbatim}
+\input{inc/preamble.tex}
+
+\usepackage[outputdir=out,cache=false]{minted}
+
+\begin{document}
+
+\input{inc/titlepage}
+
+\renewcommand*{\thepage}{}
+\tableofcontents
+\clearpage
+\renewcommand*{\thepage}{\arabic{page}}
+
+\setcounter{page}{3}
+
+\section{Задание}
+
+Реализовать lockless стек на основе алгоритма Elimination back-off stack.
+
+\section{Выполнение работы}
+
+Алгоритм Elimination back-off stack написан на языке C++20 для ОС Linux x64 на
+основе публикации \cite{hendler04}.
+
+Elimination back-off -- структура данных типа стек, имеющая свойства
+неблокируемости, линерализуемости и масштабируемости. В простом lockless стеке
+операция CAS может быть очень затратной и слабо масштабируемой с ростом числа
+потоков. Применение специальной back-off стратегии -- алгоритма, исполняющегося после
+неудачного CAS и призванного разгрузить процессор -- позволяет устранить этот
+недостаток. В данном случае в качестве такой стратегии используется специальный
+массив, содержащий дескрипторы выполняемых разными потоками операций, что дает
+возможность в некоторых случаях взаимно поглотить операции pop и push -- не
+совершать их в реальности.
+
+Кроме того был реализован тест, запускающий $N$ потоков, каждый из которых
+выполняет push- и pop-операции над стеком, порядка десятков тысяч раз. По
+завершению тестовая программа сверяет полученное состояние стека с ожидаемым.
+Измеряется время с момента запуска потоков до их завершения.
+
+На графиках ниже показана зависимость времени выполнения от числа потоков для
+двух реализаций тестовой программы: с использованием Elimination back-off stack
+и стека std::stack с мьютексом. Из графика следует, что с ростом contention,
+когда все больше потоков соревнуются за доступ к критической секции, время
+выполнения обеих реализаций сначала сравниваются, а затем EBS начинает обгонять
+реализацию на мьютексе (сравниваются на 15-16 потоках, EBS обгоняет с 25). А
+также кривая времени для lockless реализации намного более гладкая.
+Таким образом, применение Elimination back-off stack оправдано при большом
+количестве потоков.
+
+Параметры стенда представлены в таблице ниже:
+
+\begin{table}[H]
+\centering
+\begin{tabular}{|c|c|}
+    \hline
+    Название & Значение \\
+    \hline
+    ОС & Arch Linux (Linux 5.16 x64) \\
+    \hline
+    Процессор & Intel Core i7 11700 \\
+    \hline
+    Число ядер & 16 (8) \\
+    \hline
+\end{tabular}
+\end{table}
+
+\addimghere{res/plot2.png}{1}{График для 2-32 потока}{}
+\addimghere{res/plot.png}{1}{График для 2-200 потоков}{}
+
+\section{Разделение работы в бригаде}
+
+Вместе выяснили и обсудили суть алгоритма, особенности его реализации.
+Определились с интерфейсом библиотеки и ее тестированием.
+
+Дмитрий Николаев выполнил разработку тестовой утилиты, скриптов для анализа
+результатов. Выполнил отладку и рефакторинг. Сделал реализацию на мьютексах.
+
+Степан Репин реализовал Elimination back-off stack.
+
+\begingroup
+\renewcommand{\section}[2]{\anonsection{Список использованных источников}}
+\begin{thebibliography}{00}
+
+\bibitem{hendler04}
+    D. Hendler, N. Shavit, L. Yerushalmi. A Scalable Lock-free Stack Algorithm
+    // In Proceedings of the sixteenth annual ACM symposium on Parallelism in
+    algorithms and architectures (SPAA '04). Association for Computing
+    Machinery. - 2004. - P. 206–215.
+
+\end{thebibliography}
+\endgroup
+
+\end{document}
+
